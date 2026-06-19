@@ -266,6 +266,22 @@ export default function App() {
     syncFirebaseOrders();
   }, [currentUser]);
 
+  // Reusable custom alert helper explaining how to fix authorized domains or iframe sandbox issues in Bengali
+  const showCloudFallbackAlert = (dataType: string, error: any) => {
+    console.error(`Failed to sync ${dataType} with Firestore:`, error);
+    const errMsg = error?.message || String(error);
+    const isNetlify = window.location.hostname.includes("netlify.app");
+    
+    let userFriendlyExplanation = "";
+    if (isNetlify) {
+      userFriendlyExplanation = `সম্ভাব্য কারণ: আপনার নেটলিফাই ডোমেইন (${window.location.hostname}) ফায়ারবেস কনসোলে Authorized Domain হিসেবে যুক্ত করা নেই।\n\nকিভাবে সমাধান করবেন:\n১. Firebase Console-এ যান (https://console.firebase.google.com)\n২. Authentication -> Settings -> Authorized Domains-এ যান\n৩. 'Add domain' বাটনে ক্লিক করে '${window.location.hostname}' ডোমেইনটি যুক্ত করুন\n৪. এরপর এডমিন ড্যাশবোর্ডে এসে পেজ রিফ্রেশ করে আবার লগইন করুন। তাহলে ডাটাবেজ সরাসরি কানেক্ট হয়ে স্থায়ীভাবে সেভ হবে।`;
+    } else {
+      userFriendlyExplanation = `সম্ভাব্য কারণ: ব্রাউজার সিকিউরিটি পলিসির কারণে আইফ্রেম (Iframe) এর ভিতর Firebase কানেক্ট হতে বাধা পাচ্ছে।\n\nকিভাবে সমাধান করবেন:\n১. স্ক্রিনের ওপরের ডানের 'Open in a New Tab' বাটনে ক্লিক করে ওয়েবসাইটটি নতুন উইন্ডোতে ওপেন করুন।\n২. সেখানে আইডি-পাসকোড দিয়ে লগইন করুন, সমস্ত পরিবর্তন স্থায়ীভাবে সার্ভারে সেভ হবে।`;
+    }
+
+    alert(`⚠️ ক্লাউড ডাটাবেজ সেভ ব্যর্থ হয়েছে! (Cloud saving failed for ${dataType})\n\nআপনার পরিবর্তনগুলো সাময়িকভাবে শুধুমাত্র ব্রাউজারের লোকাল ক্যাশে (Local Storage) সেভ করা হয়েছে। এর ফলে আপনি ব্রাউজার বন্ধ করলে বা রিফ্রেশ করলে ডাটা হারিয়ে যেতে পারে।\n\n${userFriendlyExplanation}\n\nটেকনিক্যাল ত্রুটি: ${errMsg}`);
+  };
+
   // Sync state changes back to Storage DB and Firebase Firestore dynamically
   const handleSaveProducts = async (nextProducts: Product[]) => {
     // Hold previous to identify deletions
@@ -291,8 +307,7 @@ export default function App() {
         await saveProductToFirestore(p);
       }
     } catch (err: any) {
-      console.error("Failed to sync products in Firestore:", err);
-      alert("⚠️ Cloud saving failed! Your products were stored only in this browser's temporary local cache.\n\nReason: Firebase database connection error or local permissions issue. If you are in the preview iframe, please click 'Open in New Tab' to save permanently.");
+      showCloudFallbackAlert("Products", err);
       const errStr = String(err?.message || err).toLowerCase();
       if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
         setHasPermissionError(true);
@@ -346,8 +361,7 @@ export default function App() {
     try {
       await saveWebConfigToFirestore(nextCfg);
     } catch (err: any) {
-      console.error("Failed to sync web config to Firestore:", err);
-      alert("⚠️ Cloud saving failed! Your web setup was stored only in this browser's temporary local cache.\n\nReason: Firebase database connection error or local permissions issue. If you are in the preview iframe, please click 'Open in New Tab' to save permanently.");
+      showCloudFallbackAlert("Web Config", err);
       const errStr = String(err?.message || err).toLowerCase();
       if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
         setHasPermissionError(true);
@@ -375,8 +389,7 @@ export default function App() {
         await savePromoCodeToFirestore(p);
       }
     } catch (err: any) {
-      console.error("Failed to sync promo codes to Firestore:", err);
-      alert("⚠️ Cloud saving failed! Your promo codes were stored only in this browser's temporary local cache.\n\nReason: Firebase database connection error or local permissions issue. If you are in the preview iframe, please click 'Open in New Tab' to save permanently.");
+      showCloudFallbackAlert("Promo Codes", err);
       const errStr = String(err?.message || err).toLowerCase();
       if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
         setHasPermissionError(true);
@@ -397,8 +410,7 @@ export default function App() {
     try {
       await saveActiveThemeToFirestore(nextTheme);
     } catch (err: any) {
-      console.error("Failed to sync theme config to Firestore:", err);
-      alert("⚠️ Cloud saving failed! Your active theme configuration was stored only in this browser's temporary local cache.\n\nReason: Firebase database connection error or local permissions issue. If you are in the preview iframe, please click 'Open in New Tab' to save permanently.");
+      showCloudFallbackAlert("Theme Config", err);
       const errStr = String(err?.message || err).toLowerCase();
       if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
         setHasPermissionError(true);
