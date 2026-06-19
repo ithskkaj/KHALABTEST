@@ -33,6 +33,7 @@ import {
   auth
 } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { compressBase64Image } from './utils/imageCompressor';
 
 import { 
   ShoppingBag, Search, ExternalLink, SlidersHorizontal, Star, 
@@ -286,8 +287,28 @@ export default function App() {
   const handleSaveProducts = async (nextProducts: Product[]) => {
     // Hold previous to identify deletions
     const previousProducts = [...products];
-    setProducts(nextProducts);
-    saveStoredProducts(nextProducts);
+
+    // Optimize and compress images on key products defensively before state storage and cloud sync
+    const cleanedProducts: Product[] = [];
+    for (const p of nextProducts) {
+      const cleanedImages = await Promise.all(
+        p.images.map(async (img) => {
+          if (img.startsWith("data:image/")) {
+            try {
+              return await compressBase64Image(img, { maxWidth: 900, maxHeight: 900, quality: 0.75 });
+            } catch (e) {
+              console.warn("Defensive base64 image compression failed, preserving original:", e);
+              return img;
+            }
+          }
+          return img;
+        })
+      );
+      cleanedProducts.push({ ...p, images: cleanedImages });
+    }
+
+    setProducts(cleanedProducts);
+    saveStoredProducts(cleanedProducts);
 
     const email = auth.currentUser?.email;
     const isAdmin = email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com";
@@ -297,13 +318,13 @@ export default function App() {
 
     try {
       // Find deleted products to remove them from Firestore
-      const deleted = previousProducts.filter(p => !nextProducts.some(n => n.id === p.id));
+      const deleted = previousProducts.filter(p => !cleanedProducts.some(n => n.id === p.id));
       for (const d of deleted) {
         await deleteProductFromFirestore(d.id);
       }
 
       // Save/update next products
-      for (const p of nextProducts) {
+      for (const p of cleanedProducts) {
         await saveProductToFirestore(p);
       }
     } catch (err: any) {

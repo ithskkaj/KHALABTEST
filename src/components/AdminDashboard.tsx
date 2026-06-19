@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { authenticateUserByPhoneOrEmail, fetchAllOrdersFromFirestore, auth } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface AdminDashboardProps {
   isOpen: boolean;
@@ -222,28 +223,40 @@ export default function AdminDashboard({
     setIsDragging(false);
   };
 
-  const processUploadedFiles = (files: FileList) => {
-    Array.from(files).forEach((file) => {
+  const processUploadedFiles = async (files: FileList) => {
+    const fileList = Array.from(files);
+    for (const file of fileList) {
       if (!file.type.startsWith('image/')) {
         alert('Please select image files only.');
-        return;
+        continue;
       }
-      if (file.size > 2 * 1024 * 1024) {
-        alert(`File "${file.name}" is too large! Maximum image size allowed is 2MB to keep the application fast.`);
-        return;
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`File "${file.name}" is too large! Maximum image size allowed is 10MB.`);
+        continue;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
+      try {
+        // High quality scale down to maximum 900px which is pristine for website catalog layouts
+        const base64String = await compressImageFile(file, { maxWidth: 900, maxHeight: 900, quality: 0.75 });
         setPImages((prev) => {
           const filtered = prev.filter(img => img.trim() !== '');
           if (filtered.includes(base64String)) return prev;
           return [...filtered, base64String];
         });
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch (err) {
+        console.warn("Image compression failed, using direct reader fallback:", err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          setPImages((prev) => {
+            const filtered = prev.filter(img => img.trim() !== '');
+            if (filtered.includes(base64String)) return prev;
+            return [...filtered, base64String];
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+    }
   };
 
   const handleLocalImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
