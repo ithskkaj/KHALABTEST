@@ -32,6 +32,7 @@ import {
   saveReviewToFirestore,
   auth
 } from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 import { 
   ShoppingBag, Search, ExternalLink, SlidersHorizontal, Star, 
@@ -84,6 +85,7 @@ export default function App() {
   // simulated notifications lists
   const [notifications, setNotifications] = useState<PushNotification[]>([]);
   const [hasPermissionError, setHasPermissionError] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   // Initialize DB data with local cache for prompt rendering and background cloud synchronization
   useEffect(() => {
@@ -102,7 +104,58 @@ export default function App() {
     setActiveTheme(localTheme);
     setWebConfig(localWeb);
 
-    // 2. Real-time background cloud load from Firestore to replace cache in place
+    // Seed initial user session if present
+    const prevUser = localStorage.getItem('khalab_active_user');
+    if (prevUser) {
+      setCurrentUser(JSON.parse(prevUser));
+    }
+
+    // Seed initial demo notifications
+    setNotifications([
+      {
+        id: 'n_welcome',
+        title: '🔥 KHALAB Premium Store is Open!',
+        message: 'Welcome: Use COUPON code "KHALAB200" to secure 10% Instant discount on clothes purchases.',
+        type: 'promo',
+        timestamp: new Date(),
+        read: false
+      },
+      {
+        id: 'n_eid',
+        title: '🌟 Limited Shuvadda Festival Arrivals',
+        message: 'Unique embroidered Punjabi collections and Luxe heavyweight Hoodies now available! Check recommendations.',
+        type: 'info',
+        timestamp: new Date(Date.now() - 3600000),
+        read: false
+      }
+    ]);
+  }, []);
+
+  // Listen to Firebase auth state initialization
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setAuthInitialized(true);
+      if (user) {
+        const hasSession = localStorage.getItem('khalab_active_user');
+        if (!hasSession) {
+          const storedHistory = JSON.parse(localStorage.getItem('khalab_history') || '[]');
+          const session: UserSession = {
+            userId: user.uid,
+            phoneOrEmail: user.email || '',
+            browsingHistory: storedHistory
+          };
+          setCurrentUser(session);
+          localStorage.setItem('khalab_active_user', JSON.stringify(session));
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Real-time background cloud load from Firestore to replace cache once Auth is verified
+  useEffect(() => {
+    if (!authInitialized) return;
+
     const loadCloudData = async () => {
       // Products sync
       try {
@@ -179,34 +232,9 @@ export default function App() {
         }
       }
     };
+
     loadCloudData();
-
-    // Seed initial user session if present
-    const prevUser = localStorage.getItem('khalab_active_user');
-    if (prevUser) {
-      setCurrentUser(JSON.parse(prevUser));
-    }
-
-    // Seed initial demo notifications
-    setNotifications([
-      {
-        id: 'n_welcome',
-        title: '🔥 KHALAB Premium Store is Open!',
-        message: 'Welcome: Use COUPON code "KHALAB200" to secure 10% Instant discount on clothes purchases.',
-        type: 'promo',
-        timestamp: new Date(),
-        read: false
-      },
-      {
-        id: 'n_eid',
-        title: '🌟 Limited Shuvadda Festival Arrivals',
-        message: 'Unique embroidered Punjabi collections and Luxe heavyweight Hoodies now available! Check recommendations.',
-        type: 'info',
-        timestamp: new Date(Date.now() - 3600000),
-        read: false
-      }
-    ]);
-  }, []);
+  }, [authInitialized]);
 
   // Synchronize orders with Firebase Firestore in real-time
   useEffect(() => {
@@ -390,7 +418,12 @@ export default function App() {
     localStorage.setItem('khalab_active_user', JSON.stringify(session));
   };
 
-  const handleUserLogout = () => {
+  const handleUserLogout = async () => {
+    try {
+      await auth.signOut();
+    } catch (err) {
+      console.warn("Customer auth sign out skipped:", err);
+    }
     setCurrentUser(null);
     localStorage.removeItem('khalab_active_user');
     alert('Logged out securely from KHALAB customer portal.');

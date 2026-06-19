@@ -255,15 +255,16 @@ export async function fetchProductsFromFirestore(): Promise<Product[]> {
         for (const prod of DEFAULT_PRODUCTS) {
           await saveProductToFirestore(prod);
         }
+        return DEFAULT_PRODUCTS;
       }
-      return DEFAULT_PRODUCTS;
+      return [];
     }
 
     // Sort by createdAt descending
     return productsList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, collectionPath);
-    return DEFAULT_PRODUCTS;
+    return [];
   }
 }
 
@@ -304,13 +305,14 @@ export async function fetchPromoCodesFromFirestore(): Promise<PromoCode[]> {
         for (const promo of DEFAULT_PROMOS) {
           await savePromoCodeToFirestore(promo);
         }
+        return DEFAULT_PROMOS;
       }
-      return DEFAULT_PROMOS;
+      return [];
     }
     return promosList;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, collectionPath);
-    return DEFAULT_PROMOS;
+    return [];
   }
 }
 
@@ -346,12 +348,13 @@ export async function fetchWebConfigFromFirestore(): Promise<WebConfig> {
       const email = auth.currentUser?.email;
       if (email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com") {
         await saveWebConfigToFirestore(DEFAULT_WEB_CONFIG);
+        return DEFAULT_WEB_CONFIG;
       }
-      return DEFAULT_WEB_CONFIG;
+      return null as any;
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, docPath);
-    return DEFAULT_WEB_CONFIG;
+    return null as any;
   }
 }
 
@@ -379,12 +382,13 @@ export async function fetchActiveThemeFromFirestore(): Promise<ThemeConfig> {
       const email = auth.currentUser?.email;
       if (email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com") {
         await saveActiveThemeToFirestore(defaultTheme);
+        return defaultTheme;
       }
-      return defaultTheme;
+      return null as any;
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, docPath);
-    return PRESET_THEMES[0];
+    return null as any;
   }
 }
 
@@ -446,13 +450,14 @@ export async function fetchReviewsFromFirestore(): Promise<Review[]> {
         for (const rev of DEFAULT_REVIEWS) {
           await saveReviewToFirestore(rev);
         }
+        return DEFAULT_REVIEWS;
       }
-      return DEFAULT_REVIEWS;
+      return [];
     }
     return reviewsList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, collectionPath);
-    return DEFAULT_REVIEWS;
+    return [];
   }
 }
 

@@ -5,7 +5,8 @@ import {
   Settings, ShoppingCart, Truck, Tag, Palette, Key, LogOut, 
   Trash2, Edit, Plus, Check, RefreshCw, Users, Image, Upload, X, AlertCircle, ExternalLink 
 } from 'lucide-react';
-import { authenticateUserByPhoneOrEmail, fetchAllOrdersFromFirestore } from '../lib/firebase';
+import { authenticateUserByPhoneOrEmail, fetchAllOrdersFromFirestore, auth } from '../lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 interface AdminDashboardProps {
   isOpen: boolean;
@@ -48,6 +49,18 @@ export default function AdminDashboard({
   const [isAdminAuth, setIsAdminAuth] = useState(false);
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
+
+  // Auto-restore admin access on refresh if Firebase session persists
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && (user.email === 'admin@khalabshop.com' || user.email === 'itsbrbellal@gmail.com')) {
+        setIsAdminAuth(true);
+      } else {
+        setIsAdminAuth(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Dashboard Navigation Tabs
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'appearance' | 'setup' | 'banners_promos'>('products');
@@ -439,7 +452,14 @@ export default function AdminDashboard({
               </div>
               <button
                 id="admin_logout_btn"
-                onClick={() => setIsAdminAuth(false)}
+                onClick={async () => {
+                  try {
+                    await signOut(auth);
+                  } catch (err) {
+                    console.warn("Sign out skipped:", err);
+                  }
+                  setIsAdminAuth(false);
+                }}
                 className="self-start sm:self-auto text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
               >
                 <LogOut className="w-4 h-4" /> Exit Command
