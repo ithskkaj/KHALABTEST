@@ -78,6 +78,30 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 }
 
 /**
+ * Recursively removes all undefined fields from an object so Firestore doesn't reject it.
+ */
+export function sanitizeForFirestore<T>(obj: T): T {
+  if (obj === null || obj === undefined) return null as any;
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForFirestore(item)) as any;
+  }
+  if (obj instanceof Date) {
+    return obj.toISOString() as any;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = (obj as any)[key];
+      if (val !== undefined) {
+        cleaned[key] = sanitizeForFirestore(val);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
+/**
  * Normalizes a phone number or email into a unique, standard email for Firebase Authentication.
  */
 export function normalizePhoneOrEmailToAuthEmail(input: string): string {
@@ -116,12 +140,12 @@ export async function authenticateUserByPhoneOrEmail(phoneOrEmail: string): Prom
     // Create their document profile in Firestore
     const userPath = `users/${user.uid}`;
     try {
-      await setDoc(doc(db, "users", user.uid), {
+      await setDoc(doc(db, "users", user.uid), sanitizeForFirestore({
         userId: user.uid,
         phoneOrEmail: phoneOrEmail,
         browsingHistory: [],
         createdAt: new Date().toISOString()
-      });
+      }));
     } catch (fsErr) {
       handleFirestoreError(fsErr, OperationType.WRITE, userPath);
     }
@@ -143,7 +167,7 @@ export async function authenticateUserByPhoneOrEmail(phoneOrEmail: string): Prom
 export async function saveOrderToFirestore(order: Order): Promise<void> {
   const orderPath = `orders/${order.id}`;
   try {
-    await setDoc(doc(db, "orders", order.id), order);
+    await setDoc(doc(db, "orders", order.id), sanitizeForFirestore(order));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, orderPath);
   }
@@ -271,7 +295,7 @@ export async function fetchProductsFromFirestore(): Promise<Product[]> {
 export async function saveProductToFirestore(product: Product): Promise<void> {
   const productPath = `products/${product.id}`;
   try {
-    await setDoc(doc(db, "products", product.id), product);
+    await setDoc(doc(db, "products", product.id), sanitizeForFirestore(product));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, productPath);
   }
@@ -319,7 +343,7 @@ export async function fetchPromoCodesFromFirestore(): Promise<PromoCode[]> {
 export async function savePromoCodeToFirestore(promo: PromoCode): Promise<void> {
   const promoPath = `promos/${promo.code}`;
   try {
-    await setDoc(doc(db, "promos", promo.code), promo);
+    await setDoc(doc(db, "promos", promo.code), sanitizeForFirestore(promo));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, promoPath);
   }
@@ -361,7 +385,7 @@ export async function fetchWebConfigFromFirestore(): Promise<WebConfig> {
 export async function saveWebConfigToFirestore(config: WebConfig): Promise<void> {
   const docPath = "config/web_settings";
   try {
-    await setDoc(doc(db, "config", "web_settings"), config);
+    await setDoc(doc(db, "config", "web_settings"), sanitizeForFirestore(config));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
@@ -395,7 +419,7 @@ export async function fetchActiveThemeFromFirestore(): Promise<ThemeConfig> {
 export async function saveActiveThemeToFirestore(theme: ThemeConfig): Promise<void> {
   const docPath = "config/theme_settings";
   try {
-    await setDoc(doc(db, "config", "theme_settings"), theme);
+    await setDoc(doc(db, "config", "theme_settings"), sanitizeForFirestore(theme));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
@@ -425,7 +449,7 @@ export async function fetchThemeCustomColorsFromFirestore(): Promise<{ primary: 
 export async function saveThemeCustomColorsToFirestore(colors: { primary: string; secondary: string; accent: string }): Promise<void> {
   const docPath = "config/theme_colors";
   try {
-    await setDoc(doc(db, "config", "theme_colors"), colors);
+    await setDoc(doc(db, "config", "theme_colors"), sanitizeForFirestore(colors));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
@@ -464,7 +488,7 @@ export async function fetchReviewsFromFirestore(): Promise<Review[]> {
 export async function saveReviewToFirestore(review: Review): Promise<void> {
   const reviewPath = `reviews/${review.id}`;
   try {
-    await setDoc(doc(db, "reviews", review.id), review);
+    await setDoc(doc(db, "reviews", review.id), sanitizeForFirestore(review));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, reviewPath);
   }
