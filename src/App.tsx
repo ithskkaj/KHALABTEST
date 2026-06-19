@@ -17,7 +17,19 @@ import {
   fetchUserOrdersFromFirestore, 
   fetchAllOrdersFromFirestore, 
   updateBrowsingHistoryInFirestore, 
-  updateOrderStatusInFirestore 
+  updateOrderStatusInFirestore,
+  fetchProductsFromFirestore,
+  saveProductToFirestore,
+  deleteProductFromFirestore,
+  fetchPromoCodesFromFirestore,
+  savePromoCodeToFirestore,
+  deletePromoCodeFromFirestore,
+  fetchWebConfigFromFirestore,
+  saveWebConfigToFirestore,
+  fetchActiveThemeFromFirestore,
+  saveActiveThemeToFirestore,
+  fetchReviewsFromFirestore,
+  saveReviewToFirestore
 } from './lib/firebase';
 
 import { 
@@ -70,15 +82,104 @@ export default function App() {
 
   // simulated notifications lists
   const [notifications, setNotifications] = useState<PushNotification[]>([]);
+  const [hasPermissionError, setHasPermissionError] = useState(false);
 
-  // Initialize DB data
+  // Initialize DB data with local cache for prompt rendering and background cloud synchronization
   useEffect(() => {
-    // Load lists from DB adapters
-    setProducts(getStoredProducts());
-    setReviews(getStoredReviews());
-    setAllOrders(getStoredOrders());
-    setPromoCodes(getStoredPromoCodes());
-    
+    // 1. Prompt UI load from local storage cache to guarantee 0ms latency boot
+    const localProducts = getStoredProducts();
+    const localReviews = getStoredReviews();
+    const localOrders = getStoredOrders();
+    const localPromos = getStoredPromoCodes();
+    const localTheme = getStoredTheme();
+    const localWeb = getStoredWebConfig();
+
+    setProducts(localProducts);
+    setReviews(localReviews);
+    setAllOrders(localOrders);
+    setPromoCodes(localPromos);
+    setActiveTheme(localTheme);
+    setWebConfig(localWeb);
+
+    // 2. Real-time background cloud load from Firestore to replace cache in place
+    const loadCloudData = async () => {
+      // Products sync
+      try {
+        const cloudProducts = await fetchProductsFromFirestore();
+        if (cloudProducts && cloudProducts.length > 0) {
+          setProducts(cloudProducts);
+          saveStoredProducts(cloudProducts);
+        }
+      } catch (err: any) {
+        console.warn("Products cloud sync skipped, running on local storage cache:", err);
+        const errStr = String(err?.message || err).toLowerCase();
+        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+          setHasPermissionError(true);
+        }
+      }
+
+      // Reviews sync
+      try {
+        const cloudReviews = await fetchReviewsFromFirestore();
+        if (cloudReviews && cloudReviews.length > 0) {
+          setReviews(cloudReviews);
+          saveStoredReviews(cloudReviews);
+        }
+      } catch (err: any) {
+        console.warn("Reviews cloud sync skipped, running on local storage cache:", err);
+        const errStr = String(err?.message || err).toLowerCase();
+        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+          setHasPermissionError(true);
+        }
+      }
+
+      // Promos sync
+      try {
+        const cloudPromos = await fetchPromoCodesFromFirestore();
+        if (cloudPromos && cloudPromos.length > 0) {
+          setPromoCodes(cloudPromos);
+          saveStoredPromoCodes(cloudPromos);
+        }
+      } catch (err: any) {
+        console.warn("Promos cloud sync skipped, running on local storage cache:", err);
+        const errStr = String(err?.message || err).toLowerCase();
+        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+          setHasPermissionError(true);
+        }
+      }
+
+      // Themes sync
+      try {
+        const cloudTheme = await fetchActiveThemeFromFirestore();
+        if (cloudTheme) {
+          setActiveTheme(cloudTheme);
+          saveStoredTheme(cloudTheme);
+        }
+      } catch (err: any) {
+        console.warn("Theme cloud sync skipped, running on local storage cache:", err);
+        const errStr = String(err?.message || err).toLowerCase();
+        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+          setHasPermissionError(true);
+        }
+      }
+
+      // Web Config sync
+      try {
+        const cloudWeb = await fetchWebConfigFromFirestore();
+        if (cloudWeb) {
+          setWebConfig(cloudWeb);
+          saveStoredWebConfig(cloudWeb);
+        }
+      } catch (err: any) {
+        console.warn("Web config cloud sync skipped, running on local storage cache:", err);
+        const errStr = String(err?.message || err).toLowerCase();
+        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+          setHasPermissionError(true);
+        }
+      }
+    };
+    loadCloudData();
+
     // Seed initial user session if present
     const prevUser = localStorage.getItem('khalab_active_user');
     if (prevUser) {
@@ -124,23 +225,60 @@ export default function App() {
             setAllOrders(merged);
             saveStoredOrders(merged);
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error("Firestore order synchronization failed: ", err);
+          const errStr = String(err?.message || err).toLowerCase();
+          if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+            setHasPermissionError(true);
+          }
         }
       }
     };
     syncFirebaseOrders();
   }, [currentUser]);
 
-  // Sync state changes back to Storage DB
-  const handleSaveProducts = (nextProducts: Product[]) => {
+  // Sync state changes back to Storage DB and Firebase Firestore dynamically
+  const handleSaveProducts = async (nextProducts: Product[]) => {
+    // Hold previous to identify deletions
+    const previousProducts = [...products];
     setProducts(nextProducts);
     saveStoredProducts(nextProducts);
+
+    try {
+      // Find deleted products to remove them from Firestore
+      const deleted = previousProducts.filter(p => !nextProducts.some(n => n.id === p.id));
+      for (const d of deleted) {
+        await deleteProductFromFirestore(d.id);
+      }
+
+      // Save/update next products
+      for (const p of nextProducts) {
+        await saveProductToFirestore(p);
+      }
+    } catch (err: any) {
+      console.error("Failed to sync products in Firestore:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
+      }
+    }
   };
 
-  const handleSaveReviews = (nextReviews: Review[]) => {
+  const handleSaveReviews = async (nextReviews: Review[]) => {
     setReviews(nextReviews);
     saveStoredReviews(nextReviews);
+
+    try {
+      for (const r of nextReviews) {
+        await saveReviewToFirestore(r);
+      }
+    } catch (err: any) {
+      console.error("Failed to sync reviews to Firestore:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
+      }
+    }
   };
 
   const handleUpdateOrdersList = (nextOrders: Order[]) => {
@@ -148,19 +286,56 @@ export default function App() {
     saveStoredOrders(nextOrders);
   };
 
-  const handleSaveWebConfig = (nextCfg: WebConfig) => {
+  const handleSaveWebConfig = async (nextCfg: WebConfig) => {
     setWebConfig(nextCfg);
     saveStoredWebConfig(nextCfg);
+
+    try {
+      await saveWebConfigToFirestore(nextCfg);
+    } catch (err: any) {
+      console.error("Failed to sync web config to Firestore:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
+      }
+    }
   };
 
-  const handleSavePromoCodes = (nextPromos: PromoCode[]) => {
+  const handleSavePromoCodes = async (nextPromos: PromoCode[]) => {
+    const previousPromos = [...promoCodes];
     setPromoCodes(nextPromos);
     saveStoredPromoCodes(nextPromos);
+
+    try {
+      const deleted = previousPromos.filter(p => !nextPromos.some(n => n.code === p.code));
+      for (const d of deleted) {
+        await deletePromoCodeFromFirestore(d.code);
+      }
+      for (const p of nextPromos) {
+        await savePromoCodeToFirestore(p);
+      }
+    } catch (err: any) {
+      console.error("Failed to sync promo codes to Firestore:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
+      }
+    }
   };
 
-  const handleSaveTheme = (nextTheme: ThemeConfig) => {
+  const handleSaveTheme = async (nextTheme: ThemeConfig) => {
     setActiveTheme(nextTheme);
     saveStoredTheme(nextTheme);
+
+    try {
+      await saveActiveThemeToFirestore(nextTheme);
+    } catch (err: any) {
+      console.error("Failed to sync theme config to Firestore:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
+      }
+    }
   };
 
   // Helper inside template for dynamic banner transitions
@@ -1169,6 +1344,9 @@ export default function App() {
         onOrderSuccess={(order) => {
           // Push order and trigger live states
           setAllOrders(prev => [order, ...prev]);
+          // Refresh products state from newly remaining local/custom configs and push to Firestore
+          const updatedProds = getStoredProducts();
+          handleSaveProducts(updatedProds);
         }}
         addNotification={addAppNotification}
         primaryColor={activeTheme.primary}
@@ -1204,6 +1382,7 @@ export default function App() {
         onSaveThemeChange={handleSaveTheme}
         primaryColor={activeTheme.primary}
         onUpdateOrders={handleUpdateOrdersList}
+        hasPermissionError={hasPermissionError}
       />
 
     </div>

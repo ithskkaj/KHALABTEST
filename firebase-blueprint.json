@@ -88,6 +88,22 @@
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Logged garments order collection tracking state transitions."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Premium clothing product listing entity details."
+    },
+    "/promos/{promoId}": {
+      "schema": "PromoCode",
+      "description": "Promotional instant discount coupons database."
+    },
+    "/config/{configId}": {
+      "schema": "object",
+      "description": "Custom site presets, brands logos settings or themes."
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Verified buyers customer reviews collections."
     }
   }
 }

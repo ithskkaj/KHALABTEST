@@ -3,7 +3,7 @@ import { Product, Order, PromoCode, WebConfig, ThemeConfig } from '../types';
 import { PRESET_THEMES } from '../data/mockDb';
 import { 
   Settings, ShoppingCart, Truck, Tag, Palette, Key, LogOut, 
-  Trash2, Edit, Plus, Check, RefreshCw, Users, Image, Upload, X 
+  Trash2, Edit, Plus, Check, RefreshCw, Users, Image, Upload, X, AlertCircle, ExternalLink 
 } from 'lucide-react';
 import { authenticateUserByPhoneOrEmail, fetchAllOrdersFromFirestore } from '../lib/firebase';
 
@@ -22,6 +22,7 @@ interface AdminDashboardProps {
   onSaveThemeChange: (theme: ThemeConfig) => void;
   primaryColor: string;
   onUpdateOrders?: (orders: Order[]) => void;
+  hasPermissionError?: boolean;
 }
 
 export default function AdminDashboard({
@@ -39,6 +40,7 @@ export default function AdminDashboard({
   onSaveThemeChange,
   primaryColor,
   onUpdateOrders,
+  hasPermissionError = false,
 }: AdminDashboardProps) {
   // Authentication states
   const [isAdminAuth, setIsAdminAuth] = useState(false);
@@ -86,12 +88,26 @@ export default function AdminDashboard({
   const [custSecondary, setCustSecondary] = useState(activeTheme.secondary || '#d97706');
   const [custAccent, setCustAccent] = useState(activeTheme.accent || '#cb9e5c');
 
+  const [isAdminLoggingIn, setIsAdminLoggingIn] = useState(false);
+
   // Admin login check matching requested values
-  const handleAdminVerify = (e: React.FormEvent) => {
+  const handleAdminVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminUser.trim() === 'Khalab@123' && adminPass === '48282@Khalab') {
-      setIsAdminAuth(true);
-      alert('KHALAB Core Administration Privileges Granted.');
+      setIsAdminLoggingIn(true);
+      try {
+        // Authenticate with Firebase Auth as admin@khalabshop.com to enable secure admin write operations in Firestore
+        await authenticateUserByPhoneOrEmail("admin@khalabshop.com");
+        setIsAdminAuth(true);
+        alert('KHALAB Core Administration Privileges Granted. Cloud write authority synced.');
+      } catch (err: any) {
+        console.error("Auto Firebase Authentication failed for Admin profile:", err);
+        // Fallback to local admin clearance anyway
+        setIsAdminAuth(true);
+        alert('KHALAB Core Administration Privileges Granted locally (Cloud Sync restricted: ' + (err.message || err) + ')');
+      } finally {
+        setIsAdminLoggingIn(false);
+      }
     } else {
       alert('Access Denied. Incorrect ID or Passcode.');
     }
@@ -340,6 +356,18 @@ export default function AdminDashboard({
               <p className="text-xs text-gray-500">Provide official brand access keys to authorize modifying fabrics, catalogs, payments, and colors.</p>
             </div>
 
+            {hasPermissionError && (
+              <div className="bg-red-50 border border-red-200 text-left rounded-xl p-4 space-y-2 text-xs text-red-800">
+                <div className="flex gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span className="font-bold">⚠️ Cloud Sync Database Locked</span>
+                </div>
+                <p className="font-normal text-red-700">
+                  Firebase rules are currently blocking sync. Please log on and copy the security rules from the notice banner to update your Firebase Console.
+                </p>
+              </div>
+            )}
+
             <form onSubmit={handleAdminVerify} className="space-y-4 text-left border border-gray-100 rounded-2xl p-6 bg-slate-50 shadow-xs">
               <div>
                 <label className="block text-xs font-bold text-gray-600 pb-1">ADMIN LOGIN ID:</label>
@@ -370,9 +398,17 @@ export default function AdminDashboard({
               <button
                 id="admin_login_submit"
                 type="submit"
-                className="w-full py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-slate-800 cursor-pointer"
+                disabled={isAdminLoggingIn}
+                className="w-full py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-slate-800 cursor-pointer disabled:opacity-60 flex justify-center items-center gap-2"
               >
-                Logon to Dashboard
+                {isAdminLoggingIn ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Synchronizing Authority...
+                  </>
+                ) : (
+                  'Logon to Dashboard'
+                )}
               </button>
             </form>
             <button id="cancel_admin_login" onClick={onClose} className="text-xs font-bold text-gray-400 hover:text-gray-600">
@@ -399,6 +435,134 @@ export default function AdminDashboard({
                 <LogOut className="w-4 h-4" /> Exit Command
               </button>
             </div>
+
+            {/* INTEGRATED PERSISTENT FIRESTORE RULES COPIER */}
+            {hasPermissionError && (
+              <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 space-y-3 text-xs">
+                <div className="flex items-start gap-2 text-amber-900 font-bold">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-widest text-amber-950">⚠️ ACTION REQUIRED: Deploy Firestore Security Rules</h4>
+                    <p className="font-normal text-amber-800 mt-1">
+                      Multi-device synchronization (Laptop ↔ Mobile) is currently running in <strong>restricted offline cache mode</strong>. To link changes from this laptop to your phone instantly under your custom personal Firebase project <strong>"khalabshop"</strong>, Google requires you to manually assign the collection rules:
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950 text-slate-250 rounded-lg p-4 font-mono select-all overflow-x-auto text-[10px] space-y-2 relative border border-slate-900 shadow-inner">
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 border-b border-slate-800 pb-2 mb-2 select-none">
+                    <span className="font-bold">FIRESTORE SECURITY RULES (READY FOR COPY)</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "itsbrbellal@gmail.com" || 
+        request.auth.token.email == "admin@khalabshop.com"
+      );
+    }
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId);
+    }
+    match /orders/{orderId} {
+      allow get: if isAdmin() || (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.userPhoneOrEmail == request.auth.token.email));
+      allow list: if isAdmin() || (isSignedIn() && (resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /promos/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+  }
+}`);
+                        alert("Rules code copied successfully! You can now paste it directly into your Firebase console.");
+                      }}
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[9px] uppercase px-2.5 py-1 rounded transition-all cursor-pointer shadow-sm"
+                    >
+                      Copy Rules Code
+                    </button>
+                  </div>
+                  <pre className="max-h-32 overflow-y-auto leading-relaxed text-slate-300">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "itsbrbellal@gmail.com" || 
+        request.auth.token.email == "admin@khalabshop.com"
+      );
+    }
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId);
+    }
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /promos/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+    ...
+  }
+}`}
+                  </pre>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+                  <a 
+                    href="https://console.firebase.google.com/project/khalabshop/firestore/rules" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white py-1.5 px-3 rounded text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm shrink-0"
+                  >
+                    Open Firebase Console <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <span className="text-amber-800 text-[11px]">
+                    <strong>How to apply:</strong> Paste the copied rules into your Firestore rules panel & click <strong>Publish</strong>. Multi-device sync handles everything else automatically!
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Sub-menu Tabs */}
             <div className="bg-slate-50 border-b border-gray-200 px-6 overflow-x-auto flex gap-6 text-xs font-bold uppercase text-gray-500">

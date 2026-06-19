@@ -1,7 +1,7 @@
 import { Product, Review, Order, WebConfig, PromoCode, ThemeConfig } from '../types';
 
 // Web Config Defaults matching exact user request
-const DEFAULT_WEB_CONFIG: WebConfig = {
+export const DEFAULT_WEB_CONFIG: WebConfig = {
   brandName: 'KHALAB',
   address: 'Shuvadda, South Keraniganj, Dhaka, Bangladesh.',
   mobile: '+880171941040',
@@ -90,7 +90,7 @@ export const PRESET_THEMES: ThemeConfig[] = [
 ];
 
 // Default Clothing Catalog
-const DEFAULT_PRODUCTS: Product[] = [
+export const DEFAULT_PRODUCTS: Product[] = [
   {
     id: 'p1',
     title: 'KHALAB Royal Gold Embroidered Panjabi',
@@ -184,14 +184,14 @@ const DEFAULT_PRODUCTS: Product[] = [
 ];
 
 // Initial Promos
-const DEFAULT_PROMOS: PromoCode[] = [
+export const DEFAULT_PROMOS: PromoCode[] = [
   { code: 'KHALAB200', discountPercent: 10, minSpend: 1500 },
   { code: 'PREMIUM300', discountPercent: 15, minSpend: 2500 },
   { code: 'EIDPREMIUM', discountPercent: 20, minSpend: 4000 }
 ];
 
 // Initial default reviews
-const DEFAULT_REVIEWS: Review[] = [
+export const DEFAULT_REVIEWS: Review[] = [
   {
     id: 'r1',
     productId: 'p1',

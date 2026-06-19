@@ -17,10 +17,12 @@ import {
   query, 
   where, 
   orderBy,
-  updateDoc
+  updateDoc,
+  deleteDoc
 } from "firebase/firestore";
 import firebaseConfig from "../firebase-applet-config.json";
-import { Order, UserSession } from "../types";
+import { Order, UserSession, Product, PromoCode, WebConfig, ThemeConfig, Review } from "../types";
+import { DEFAULT_PRODUCTS, DEFAULT_PROMOS, DEFAULT_WEB_CONFIG, DEFAULT_REVIEWS, PRESET_THEMES } from "../data/mockDb";
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -227,3 +229,219 @@ export async function testConnection() {
   }
 }
 testConnection();
+
+/**
+ * =========================================================================
+ * MULTI-DEVICE SYNCHRONIZED STORAGE HELPERS
+ * =========================================================================
+ */
+
+/**
+ * 1. PRODUCTS SYNC HELPERS
+ */
+export async function fetchProductsFromFirestore(): Promise<Product[]> {
+  const collectionPath = "products";
+  try {
+    const querySnapshot = await getDocs(collection(db, collectionPath));
+    const productsList: Product[] = [];
+    querySnapshot.forEach((document) => {
+      productsList.push(document.data() as Product);
+    });
+
+    if (productsList.length === 0) {
+      // Seed default products in cloud database
+      for (const prod of DEFAULT_PRODUCTS) {
+        await saveProductToFirestore(prod);
+      }
+      return DEFAULT_PRODUCTS;
+    }
+
+    // Sort by createdAt descending
+    return productsList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, collectionPath);
+    return DEFAULT_PRODUCTS;
+  }
+}
+
+export async function saveProductToFirestore(product: Product): Promise<void> {
+  const productPath = `products/${product.id}`;
+  try {
+    await setDoc(doc(db, "products", product.id), product);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, productPath);
+  }
+}
+
+export async function deleteProductFromFirestore(productId: string): Promise<void> {
+  const productPath = `products/${productId}`;
+  try {
+    await deleteDoc(doc(db, "products", productId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, productPath);
+  }
+}
+
+/**
+ * 2. PROMO CODES SYNC HELPERS
+ */
+export async function fetchPromoCodesFromFirestore(): Promise<PromoCode[]> {
+  const collectionPath = "promos";
+  try {
+    const querySnapshot = await getDocs(collection(db, collectionPath));
+    const promosList: PromoCode[] = [];
+    querySnapshot.forEach((document) => {
+      promosList.push(document.data() as PromoCode);
+    });
+
+    if (promosList.length === 0) {
+      // Seed default promos in cloud database
+      for (const promo of DEFAULT_PROMOS) {
+        await savePromoCodeToFirestore(promo);
+      }
+      return DEFAULT_PROMOS;
+    }
+    return promosList;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, collectionPath);
+    return DEFAULT_PROMOS;
+  }
+}
+
+export async function savePromoCodeToFirestore(promo: PromoCode): Promise<void> {
+  const promoPath = `promos/${promo.code}`;
+  try {
+    await setDoc(doc(db, "promos", promo.code), promo);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, promoPath);
+  }
+}
+
+export async function deletePromoCodeFromFirestore(code: string): Promise<void> {
+  const promoPath = `promos/${code}`;
+  try {
+    await deleteDoc(doc(db, "promos", code));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, promoPath);
+  }
+}
+
+/**
+ * 3. WEB CONFIG SYNC HELPERS
+ */
+export async function fetchWebConfigFromFirestore(): Promise<WebConfig> {
+  const docPath = "config/web_settings";
+  try {
+    const docSnap = await getDoc(doc(db, "config", "web_settings"));
+    if (docSnap.exists()) {
+      return docSnap.data() as WebConfig;
+    } else {
+      // Seed default web configuration
+      await saveWebConfigToFirestore(DEFAULT_WEB_CONFIG);
+      return DEFAULT_WEB_CONFIG;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, docPath);
+    return DEFAULT_WEB_CONFIG;
+  }
+}
+
+export async function saveWebConfigToFirestore(config: WebConfig): Promise<void> {
+  const docPath = "config/web_settings";
+  try {
+    await setDoc(doc(db, "config", "web_settings"), config);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+
+/**
+ * 4. THEME & COLORS SYNC HELPERS
+ */
+export async function fetchActiveThemeFromFirestore(): Promise<ThemeConfig> {
+  const docPath = "config/theme_settings";
+  try {
+    const docSnap = await getDoc(doc(db, "config", "theme_settings"));
+    if (docSnap.exists()) {
+      return docSnap.data() as ThemeConfig;
+    } else {
+      // Seed default active theme
+      const defaultTheme = PRESET_THEMES[0];
+      await saveActiveThemeToFirestore(defaultTheme);
+      return defaultTheme;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, docPath);
+    return PRESET_THEMES[0];
+  }
+}
+
+export async function saveActiveThemeToFirestore(theme: ThemeConfig): Promise<void> {
+  const docPath = "config/theme_settings";
+  try {
+    await setDoc(doc(db, "config", "theme_settings"), theme);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+
+export async function fetchThemeCustomColorsFromFirestore(): Promise<{ primary: string; secondary: string; accent: string }> {
+  const docPath = "config/theme_colors";
+  const defaultColors = { primary: '#1e293b', secondary: '#d97706', accent: '#cb9e5c' };
+  try {
+    const docSnap = await getDoc(doc(db, "config", "theme_colors"));
+    if (docSnap.exists()) {
+      return docSnap.data() as { primary: string; secondary: string; accent: string };
+    } else {
+      await saveThemeCustomColorsToFirestore(defaultColors);
+      return defaultColors;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, docPath);
+    return defaultColors;
+  }
+}
+
+export async function saveThemeCustomColorsToFirestore(colors: { primary: string; secondary: string; accent: string }): Promise<void> {
+  const docPath = "config/theme_colors";
+  try {
+    await setDoc(doc(db, "config", "theme_colors"), colors);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+
+/**
+ * 5. REVIEWS SYNC HELPERS
+ */
+export async function fetchReviewsFromFirestore(): Promise<Review[]> {
+  const collectionPath = "reviews";
+  try {
+    const querySnapshot = await getDocs(collection(db, collectionPath));
+    const reviewsList: Review[] = [];
+    querySnapshot.forEach((document) => {
+      reviewsList.push(document.data() as Review);
+    });
+
+    if (reviewsList.length === 0) {
+      // Seed default reviews
+      for (const rev of DEFAULT_REVIEWS) {
+        await saveReviewToFirestore(rev);
+      }
+      return DEFAULT_REVIEWS;
+    }
+    return reviewsList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, collectionPath);
+    return DEFAULT_REVIEWS;
+  }
+}
+
+export async function saveReviewToFirestore(review: Review): Promise<void> {
+  const reviewPath = `reviews/${review.id}`;
+  try {
+    await setDoc(doc(db, "reviews", review.id), review);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, reviewPath);
+  }
+}
