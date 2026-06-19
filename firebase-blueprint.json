@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a store customer signed up or signed in via their mobile number or email.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique user ID of the client."
+        },
+        "phoneOrEmail": {
+          "type": "string",
+          "description": "User's phone number or email address."
+        },
+        "browsingHistory": {
+          "type": "array",
+          "description": "List of recently viewed product IDs."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of user registration."
+        }
+      },
+      "required": ["userId", "phoneOrEmail"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "An apparel purchase order containing items, address details, and shipping status.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique order document key."
+        },
+        "invoiceNo": {
+          "type": "string",
+          "description": "Short human-readable serial invoice serial number."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Associated user reference string."
+        },
+        "userPhoneOrEmail": {
+          "type": "string",
+          "description": "Checkout physical identification mobile phone code or email."
+        },
+        "items": {
+          "type": "array",
+          "description": "Garments inside checkout cart bags."
+        },
+        "shippingAddress": {
+          "type": "object",
+          "description": "Customer location cascading vectors."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment platform used."
+        },
+        "paymentDetails": {
+          "type": "object",
+          "description": "Sourced wallet pins metadata."
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "BDT total amount calculated."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"],
+          "description": "Live tracker workflow progression element."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when checkout is done."
+        }
+      },
+      "required": ["id", "invoiceNo", "userId", "userPhoneOrEmail", "items", "shippingAddress", "paymentMethod", "totalAmount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Customer profiles containing identity parameters."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Logged garments order collection tracking state transitions."
+    }
+  }
+}

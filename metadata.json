@@ -1,0 +1,6 @@
+{
+  "name": "KHALAB",
+  "description": "Premium clothing brand featuring real-time inventory, secure payment gateway simulation, user reviews, order tracking, and an admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
