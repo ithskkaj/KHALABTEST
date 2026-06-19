@@ -153,86 +153,86 @@ export default function App() {
   }, []);
 
   // 2. Real-time background cloud load from Firestore to replace cache once Auth is verified
-  useEffect(() => {
+  const loadCloudData = async () => {
     if (!authInitialized) return;
 
-    const loadCloudData = async () => {
-      // Products sync
-      try {
-        const cloudProducts = await fetchProductsFromFirestore();
-        if (cloudProducts && cloudProducts.length > 0) {
-          setProducts(cloudProducts);
-          saveStoredProducts(cloudProducts);
-        }
-      } catch (err: any) {
-        console.warn("Products cloud sync skipped, running on local storage cache:", err);
-        const errStr = String(err?.message || err).toLowerCase();
-        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
-          setHasPermissionError(true);
-        }
+    // Products sync
+    try {
+      const cloudProducts = await fetchProductsFromFirestore();
+      if (cloudProducts && cloudProducts.length > 0) {
+        setProducts(cloudProducts);
+        saveStoredProducts(cloudProducts);
       }
-
-      // Reviews sync
-      try {
-        const cloudReviews = await fetchReviewsFromFirestore();
-        if (cloudReviews && cloudReviews.length > 0) {
-          setReviews(cloudReviews);
-          saveStoredReviews(cloudReviews);
-        }
-      } catch (err: any) {
-        console.warn("Reviews cloud sync skipped, running on local storage cache:", err);
-        const errStr = String(err?.message || err).toLowerCase();
-        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
-          setHasPermissionError(true);
-        }
+    } catch (err: any) {
+      console.warn("Products cloud sync skipped, running on local storage cache:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
       }
+    }
 
-      // Promos sync
-      try {
-        const cloudPromos = await fetchPromoCodesFromFirestore();
-        if (cloudPromos && cloudPromos.length > 0) {
-          setPromoCodes(cloudPromos);
-          saveStoredPromoCodes(cloudPromos);
-        }
-      } catch (err: any) {
-        console.warn("Promos cloud sync skipped, running on local storage cache:", err);
-        const errStr = String(err?.message || err).toLowerCase();
-        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
-          setHasPermissionError(true);
-        }
+    // Reviews sync
+    try {
+      const cloudReviews = await fetchReviewsFromFirestore();
+      if (cloudReviews && cloudReviews.length > 0) {
+        setReviews(cloudReviews);
+        saveStoredReviews(cloudReviews);
       }
-
-      // Themes sync
-      try {
-        const cloudTheme = await fetchActiveThemeFromFirestore();
-        if (cloudTheme) {
-          setActiveTheme(cloudTheme);
-          saveStoredTheme(cloudTheme);
-        }
-      } catch (err: any) {
-        console.warn("Theme cloud sync skipped, running on local storage cache:", err);
-        const errStr = String(err?.message || err).toLowerCase();
-        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
-          setHasPermissionError(true);
-        }
+    } catch (err: any) {
+      console.warn("Reviews cloud sync skipped, running on local storage cache:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
       }
+    }
 
-      // Web Config sync
-      try {
-        const cloudWeb = await fetchWebConfigFromFirestore();
-        if (cloudWeb) {
-          setWebConfig(cloudWeb);
-          saveStoredWebConfig(cloudWeb);
-        }
-      } catch (err: any) {
-        console.warn("Web config cloud sync skipped, running on local storage cache:", err);
-        const errStr = String(err?.message || err).toLowerCase();
-        if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
-          setHasPermissionError(true);
-        }
+    // Promos sync
+    try {
+      const cloudPromos = await fetchPromoCodesFromFirestore();
+      if (cloudPromos && cloudPromos.length > 0) {
+        setPromoCodes(cloudPromos);
+        saveStoredPromoCodes(cloudPromos);
       }
-    };
+    } catch (err: any) {
+      console.warn("Promos cloud sync skipped, running on local storage cache:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
+      }
+    }
 
+    // Themes sync
+    try {
+      const cloudTheme = await fetchActiveThemeFromFirestore();
+      if (cloudTheme) {
+        setActiveTheme(cloudTheme);
+        saveStoredTheme(cloudTheme);
+      }
+    } catch (err: any) {
+      console.warn("Theme cloud sync skipped, running on local storage cache:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
+      }
+    }
+
+    // Web Config sync
+    try {
+      const cloudWeb = await fetchWebConfigFromFirestore();
+      if (cloudWeb) {
+        setWebConfig(cloudWeb);
+        saveStoredWebConfig(cloudWeb);
+      }
+    } catch (err: any) {
+      console.warn("Web config cloud sync skipped, running on local storage cache:", err);
+      const errStr = String(err?.message || err).toLowerCase();
+      if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
+        setHasPermissionError(true);
+      }
+    }
+  };
+
+  useEffect(() => {
     loadCloudData();
   }, [authInitialized]);
 
@@ -292,6 +292,7 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Failed to sync products in Firestore:", err);
+      alert("⚠️ Cloud saving failed! Your products were stored only in this browser's temporary local cache.\n\nReason: Firebase database connection error or local permissions issue. If you are in the preview iframe, please click 'Open in New Tab' to save permanently.");
       const errStr = String(err?.message || err).toLowerCase();
       if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
         setHasPermissionError(true);
@@ -346,6 +347,7 @@ export default function App() {
       await saveWebConfigToFirestore(nextCfg);
     } catch (err: any) {
       console.error("Failed to sync web config to Firestore:", err);
+      alert("⚠️ Cloud saving failed! Your web setup was stored only in this browser's temporary local cache.\n\nReason: Firebase database connection error or local permissions issue. If you are in the preview iframe, please click 'Open in New Tab' to save permanently.");
       const errStr = String(err?.message || err).toLowerCase();
       if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
         setHasPermissionError(true);
@@ -374,6 +376,7 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Failed to sync promo codes to Firestore:", err);
+      alert("⚠️ Cloud saving failed! Your promo codes were stored only in this browser's temporary local cache.\n\nReason: Firebase database connection error or local permissions issue. If you are in the preview iframe, please click 'Open in New Tab' to save permanently.");
       const errStr = String(err?.message || err).toLowerCase();
       if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
         setHasPermissionError(true);
@@ -395,6 +398,7 @@ export default function App() {
       await saveActiveThemeToFirestore(nextTheme);
     } catch (err: any) {
       console.error("Failed to sync theme config to Firestore:", err);
+      alert("⚠️ Cloud saving failed! Your active theme configuration was stored only in this browser's temporary local cache.\n\nReason: Firebase database connection error or local permissions issue. If you are in the preview iframe, please click 'Open in New Tab' to save permanently.");
       const errStr = String(err?.message || err).toLowerCase();
       if (errStr.includes("permission") || errStr.includes("insufficient") || errStr.includes("denied") || errStr.includes("auth")) {
         setHasPermissionError(true);
@@ -1453,6 +1457,7 @@ export default function App() {
         onUpdateOrders={handleUpdateOrdersList}
         hasPermissionError={hasPermissionError}
         onClearPermissionError={() => setHasPermissionError(false)}
+        onReloadCloudData={loadCloudData}
       />
 
     </div>

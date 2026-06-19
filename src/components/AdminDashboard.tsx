@@ -25,6 +25,7 @@ interface AdminDashboardProps {
   onUpdateOrders?: (orders: Order[]) => void;
   hasPermissionError?: boolean;
   onClearPermissionError?: () => void;
+  onReloadCloudData?: () => Promise<void>;
 }
 
 export default function AdminDashboard({
@@ -44,6 +45,7 @@ export default function AdminDashboard({
   onUpdateOrders,
   hasPermissionError = false,
   onClearPermissionError = () => {},
+  onReloadCloudData,
 }: AdminDashboardProps) {
   // Authentication states
   const [isAdminAuth, setIsAdminAuth] = useState(false);
@@ -114,6 +116,9 @@ export default function AdminDashboard({
         // Authenticate with Firebase Auth as admin@khalabshop.com to enable secure admin write operations in Firestore
         await authenticateUserByPhoneOrEmail("admin@khalabshop.com");
         setIsAdminAuth(true);
+        if (onReloadCloudData) {
+          await onReloadCloudData();
+        }
         alert('KHALAB Core Administration Privileges Granted. Cloud write authority synced.');
       } catch (err: any) {
         console.error("Auto Firebase Authentication failed for Admin profile:", err);
@@ -450,20 +455,38 @@ export default function AdminDashboard({
                   <p className="text-xs opacity-90 font-mono">Status: Secure Authority Verified</p>
                 </div>
               </div>
-              <button
-                id="admin_logout_btn"
-                onClick={async () => {
-                  try {
-                    await signOut(auth);
-                  } catch (err) {
-                    console.warn("Sign out skipped:", err);
-                  }
-                  setIsAdminAuth(false);
-                }}
-                className="self-start sm:self-auto text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
-              >
-                <LogOut className="w-4 h-4" /> Exit Command
-              </button>
+              <div className="flex items-center gap-2.5">
+                {onReloadCloudData && (
+                  <button
+                    id="admin_force_sync_btn"
+                    onClick={async () => {
+                      try {
+                        await onReloadCloudData();
+                        alert('Cloud products, web setup, themes, and promo configurations fully synchronized from live Firestore database!');
+                      } catch (err: any) {
+                        alert('Sync failed: ' + (err?.message || err));
+                      }
+                    }}
+                    className="text-xs font-bold bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                  >
+                    <RefreshCw className="w-4 h-4 animate-reverse-spin" /> Sync Live Database
+                  </button>
+                )}
+                <button
+                  id="admin_logout_btn"
+                  onClick={async () => {
+                    try {
+                      await signOut(auth);
+                    } catch (err) {
+                      console.warn("Sign out skipped:", err);
+                    }
+                    setIsAdminAuth(false);
+                  }}
+                  className="text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                >
+                  <LogOut className="w-4 h-4" /> Exit Command
+                </button>
+              </div>
             </div>
 
             {/* INTEGRATED PERSISTENT FIRESTORE RULES COPIER */}
@@ -485,6 +508,25 @@ export default function AdminDashboard({
                   >
                     Dismiss Warning
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* IFRAME PRIVACY SANDBOX OR CUSTOMER OVERRIDE WARNING */}
+            {(!auth.currentUser || !(auth.currentUser.email === 'admin@khalabshop.com' || auth.currentUser.email === 'itsbrbellal@gmail.com')) && (
+              <div className="bg-amber-50 border-b border-amber-250 px-6 py-4 space-y-2 text-xs">
+                <div className="flex items-start gap-2.5 text-amber-900 font-bold">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-widest text-amber-950">⚠️ ক্লাউড ডাটাবেজ সিঙ্ক হচ্ছে না (Local-Only Mode Enabled)</h4>
+                    <p className="font-normal text-amber-800 mt-1">
+                      আপনার ব্রাউজারের প্রাইভেসি সুরক্ষার কারণে আইফ্রেম (Iframe) এর ভিতর Firebase ডাটাবেজের সাথে কানেক্ট হতে পারছে না, অথবা আপনি কাস্টমার পোর্টালে লগইন করেছেন যা এডমিন সেশন বাতিল করেছে। 
+                      <strong> এই অবস্থায় নতুন প্রোডাক্ট এড, ইমেজ পরিবর্তন, অথবা কোনো তথ্য এডিট করলে তা স্থায়ীভাবে সেভ (Permanent Save) হবে না।</strong>
+                    </p>
+                    <p className="font-black text-amber-950 mt-2 flex items-center gap-1">
+                      👉 সমাধান: উপরের ডানের <span className="bg-amber-200 px-1.5 py-0.5 rounded font-mono">Open in a New Tab</span> বা নতুন উইন্ডো বাটনে ক্লিক করে ওয়েবসাইটটি সরাসরি ব্রাউজারে ওপেন করুন এবং সেখানে এডমিন প্যানেলে লগইন করে কাজ করুন। তাহলে সমস্ত তথ্য স্থায়ীভাবে ডাটাবেজে সেভ থাকবে এবং অন্য যেকোনো ডিভাইস থেকেও পাওয়া যাবে।
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
