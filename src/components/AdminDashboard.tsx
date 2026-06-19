@@ -3,7 +3,7 @@ import { Product, Order, PromoCode, WebConfig, ThemeConfig } from '../types';
 import { PRESET_THEMES } from '../data/mockDb';
 import { 
   Settings, ShoppingCart, Truck, Tag, Palette, Key, LogOut, 
-  Trash2, Edit, Plus, Check, RefreshCw, Users, Image 
+  Trash2, Edit, Plus, Check, RefreshCw, Users, Image, Upload, X 
 } from 'lucide-react';
 import { authenticateUserByPhoneOrEmail, fetchAllOrdersFromFirestore } from '../lib/firebase';
 
@@ -173,6 +173,64 @@ export default function AdminDashboard({
 
     onSaveProducts(nextProducts);
     resetProductForm();
+  };
+
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const processUploadedFiles = (files: FileList) => {
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select image files only.');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        alert(`File "${file.name}" is too large! Maximum image size allowed is 2MB to keep the application fast.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setPImages((prev) => {
+          const filtered = prev.filter(img => img.trim() !== '');
+          if (filtered.includes(base64String)) return prev;
+          return [...filtered, base64String];
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleLocalImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      processUploadedFiles(files);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processUploadedFiles(files);
+    }
+  };
+
+  const handleRemoveImageByIndex = (indexToRemove: number) => {
+    setPImages((prev) => {
+      const filtered = prev.filter((_, idx) => idx !== indexToRemove);
+      return filtered.length === 0 ? [''] : filtered;
+    });
   };
 
   const resetProductForm = () => {
@@ -520,17 +578,96 @@ export default function AdminDashboard({
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs text-gray-500 pb-1">Clothing Display Fabric Photos (URLs - one per line) *</label>
-                        <textarea
-                          id="p_images_input"
-                          required
-                          rows={2}
-                          placeholder="e.g. https://images.unsplash.com/photo-..."
-                          value={pImages.join('\n')}
-                          onChange={(e) => setPImages(e.target.value.split('\n'))}
-                          className="w-full text-xs p-2.5 border border-gray-300 rounded-lg bg-white outline-hidden"
-                        />
+                      <div className="space-y-4 border border-gray-200 bg-slate-50/50 rounded-xl p-4">
+                        <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+                          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+                            Product Display Imagery *
+                          </label>
+                          <span className="text-[10px] text-gray-500 bg-white border border-gray-200 px-2.5 py-0.5 rounded-full font-semibold">
+                            {pImages.filter(img => img.trim() !== '').length} Selected
+                          </span>
+                        </div>
+
+                        {/* Local Storage File Dropzone & Click Area */}
+                        <div 
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                          onClick={() => document.getElementById('p_local_file_input')?.click()}
+                          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200 ${
+                            isDragging 
+                              ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
+                              : 'border-gray-300 hover:border-indigo-400 bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <input 
+                            id="p_local_file_input"
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLocalImageUpload}
+                          />
+                          <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-xs font-bold text-gray-800">
+                            Drag & drop your product files here, or <span className="text-indigo-600 underline">browse device</span>
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            PNG, JPG, JPEG or WEBP formats (Max 2MB per image)
+                          </p>
+                        </div>
+
+                        {/* Image Previews & Custom List */}
+                        {pImages.filter(img => img.trim() !== '').length > 0 && (
+                          <div className="space-y-2">
+                            <label className="block text-[10px] text-gray-400 font-extrabold uppercase tracking-widest">
+                              Image Queue & Previews
+                            </label>
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                              {pImages.filter(img => img.trim() !== '').map((img, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="aspect-square relative rounded-lg overflow-hidden border border-gray-200 group bg-slate-100"
+                                >
+                                  <img 
+                                    src={img} 
+                                    alt={`Product preview ${idx + 1}`} 
+                                    className="w-full h-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <button
+                                    id={`p_img_remove_btn_${idx}`}
+                                    type="button"
+                                    onClick={() => handleRemoveImageByIndex(idx)}
+                                    className="absolute inset-0 bg-red-900/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer"
+                                    title="Click to remove"
+                                  >
+                                    <X className="w-5 h-5 pointer-events-none" />
+                                  </button>
+                                  <span className="absolute bottom-1 left-1 bg-black/60 text-[9px] text-white px-1.5 py-0.5 rounded font-mono font-bold">
+                                    #{idx + 1}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Collapsible Textarea or Textarea Helper for Link pasting */}
+                        <div className="pt-2 border-t border-gray-200">
+                          <label className="block text-xs text-gray-500 pb-1 font-semibold">
+                            Or paste direct Web URLs (one image link per line):
+                          </label>
+                          <textarea
+                            id="p_images_input"
+                            required
+                            rows={2}
+                            placeholder="e.g. https://images.unsplash.com/photo-..."
+                            value={pImages.join('\n')}
+                            onChange={(e) => setPImages(e.target.value.split('\n'))}
+                            className="w-full text-xs p-2.5 border border-gray-300 rounded-lg bg-white outline-hidden"
+                          />
+                        </div>
                       </div>
 
                       <div className="flex gap-2 justify-end pt-2">
