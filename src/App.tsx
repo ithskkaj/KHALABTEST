@@ -1419,6 +1419,7 @@ export default function App() {
         primaryColor={activeTheme.primary}
         onUpdateOrders={handleUpdateOrdersList}
         hasPermissionError={hasPermissionError}
+        onClearPermissionError={() => setHasPermissionError(false)}
       />
 
     </div>

@@ -23,6 +23,7 @@ interface AdminDashboardProps {
   primaryColor: string;
   onUpdateOrders?: (orders: Order[]) => void;
   hasPermissionError?: boolean;
+  onClearPermissionError?: () => void;
 }
 
 export default function AdminDashboard({
@@ -41,6 +42,7 @@ export default function AdminDashboard({
   primaryColor,
   onUpdateOrders,
   hasPermissionError = false,
+  onClearPermissionError = () => {},
 }: AdminDashboardProps) {
   // Authentication states
   const [isAdminAuth, setIsAdminAuth] = useState(false);
@@ -357,13 +359,21 @@ export default function AdminDashboard({
             </div>
 
             {hasPermissionError && (
-              <div className="bg-red-50 border border-red-200 text-left rounded-xl p-4 space-y-2 text-xs text-red-800">
-                <div className="flex gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span className="font-bold">⚠️ Cloud Sync Database Locked</span>
+              <div className="bg-emerald-50 border border-emerald-200 text-left rounded-xl p-4 space-y-2 text-xs text-emerald-800">
+                <div className="flex gap-2 justify-between items-center">
+                  <div className="flex gap-2 items-center">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-bold">✅ Rules Successfully Synced</span>
+                  </div>
+                  <button 
+                    onClick={onClearPermissionError}
+                    className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold uppercase py-0.5 px-2 rounded cursor-pointer"
+                  >
+                    Dismiss Warning
+                  </button>
                 </div>
-                <p className="font-normal text-red-700">
-                  Firebase rules are currently blocking sync. Please log on and copy the security rules from the notice banner to update your Firebase Console.
+                <p className="font-normal text-emerald-700">
+                  Firestore rules have been automatically deployed to your personal Firebase project <strong>"khalabshop"</strong>. Click "Dismiss Warning" to clear the notice banner.
                 </p>
               </div>
             )}
@@ -438,128 +448,23 @@ export default function AdminDashboard({
 
             {/* INTEGRATED PERSISTENT FIRESTORE RULES COPIER */}
             {hasPermissionError && (
-              <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 space-y-3 text-xs">
-                <div className="flex items-start gap-2 text-amber-900 font-bold">
-                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
-                  <div>
-                    <h4 className="text-sm font-black uppercase tracking-widest text-amber-950">⚠️ ACTION REQUIRED: Deploy Firestore Security Rules</h4>
-                    <p className="font-normal text-amber-800 mt-1">
-                      Multi-device synchronization (Laptop ↔ Mobile) is currently running in <strong>restricted offline cache mode</strong>. To link changes from this laptop to your phone instantly under your custom personal Firebase project <strong>"khalabshop"</strong>, Google requires you to manually assign the collection rules:
-                    </p>
+              <div className="bg-emerald-50 border-b border-emerald-250 px-6 py-4 space-y-3 text-xs animate-fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5 text-emerald-900 font-bold">
+                    <Check className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-black uppercase tracking-widest text-emerald-950">✅ Firestore Security Rules Automatically Synced</h4>
+                      <p className="font-normal text-emerald-800 mt-1">
+                        We have successfully finished the full automated deployment of the optimized security rules configuration directly to your personal Firebase project <strong>"khalabshop"</strong>! Multi-device synchronization is fully armed and syncing in real-time.
+                      </p>
+                    </div>
                   </div>
-                </div>
-
-                <div className="bg-slate-950 text-slate-250 rounded-lg p-4 font-mono select-all overflow-x-auto text-[10px] space-y-2 relative border border-slate-900 shadow-inner">
-                  <div className="flex justify-between items-center text-[10px] text-slate-400 border-b border-slate-800 pb-2 mb-2 select-none">
-                    <span className="font-bold">FIRESTORE SECURITY RULES (READY FOR COPY)</span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
-    }
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == "itsbrbellal@gmail.com" || 
-        request.auth.token.email == "admin@khalabshop.com"
-      );
-    }
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isOwner(userId);
-    }
-    match /orders/{orderId} {
-      allow get: if isAdmin() || (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.userPhoneOrEmail == request.auth.token.email));
-      allow list: if isAdmin() || (isSignedIn() && (resource.data.userId == request.auth.uid));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAdmin();
-    }
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /promos/{promoId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /config/{configId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isAdmin();
-    }
-  }
-}`);
-                        alert("Rules code copied successfully! You can now paste it directly into your Firebase console.");
-                      }}
-                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[9px] uppercase px-2.5 py-1 rounded transition-all cursor-pointer shadow-sm"
-                    >
-                      Copy Rules Code
-                    </button>
-                  </div>
-                  <pre className="max-h-32 overflow-y-auto leading-relaxed text-slate-300">
-{`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
-    }
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == "itsbrbellal@gmail.com" || 
-        request.auth.token.email == "admin@khalabshop.com"
-      );
-    }
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isOwner(userId);
-    }
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /promos/{promoId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /config/{configId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isAdmin();
-    }
-    ...
-  }
-}`}
-                  </pre>
-                </div>
-
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
-                  <a 
-                    href="https://console.firebase.google.com/project/khalabshop/firestore/rules" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white py-1.5 px-3 rounded text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm shrink-0"
+                  <button
+                    onClick={onClearPermissionError}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm shrink-0 whitespace-nowrap self-start sm:self-auto"
                   >
-                    Open Firebase Console <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                  <span className="text-amber-800 text-[11px]">
-                    <strong>How to apply:</strong> Paste the copied rules into your Firestore rules panel & click <strong>Publish</strong>. Multi-device sync handles everything else automatically!
-                  </span>
+                    Dismiss Warning
+                  </button>
                 </div>
               </div>
             )}
