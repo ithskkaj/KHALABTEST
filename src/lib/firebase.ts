@@ -249,9 +249,12 @@ export async function fetchProductsFromFirestore(): Promise<Product[]> {
     });
 
     if (productsList.length === 0) {
-      // Seed default products in cloud database
-      for (const prod of DEFAULT_PRODUCTS) {
-        await saveProductToFirestore(prod);
+      // Seed default products in cloud database if we have admin credentials
+      const email = auth.currentUser?.email;
+      if (email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com") {
+        for (const prod of DEFAULT_PRODUCTS) {
+          await saveProductToFirestore(prod);
+        }
       }
       return DEFAULT_PRODUCTS;
     }
@@ -295,9 +298,12 @@ export async function fetchPromoCodesFromFirestore(): Promise<PromoCode[]> {
     });
 
     if (promosList.length === 0) {
-      // Seed default promos in cloud database
-      for (const promo of DEFAULT_PROMOS) {
-        await savePromoCodeToFirestore(promo);
+      // Seed default promos in cloud database if we have admin credentials
+      const email = auth.currentUser?.email;
+      if (email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com") {
+        for (const promo of DEFAULT_PROMOS) {
+          await savePromoCodeToFirestore(promo);
+        }
       }
       return DEFAULT_PROMOS;
     }
@@ -336,8 +342,11 @@ export async function fetchWebConfigFromFirestore(): Promise<WebConfig> {
     if (docSnap.exists()) {
       return docSnap.data() as WebConfig;
     } else {
-      // Seed default web configuration
-      await saveWebConfigToFirestore(DEFAULT_WEB_CONFIG);
+      // Seed default web configuration if we have admin credentials
+      const email = auth.currentUser?.email;
+      if (email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com") {
+        await saveWebConfigToFirestore(DEFAULT_WEB_CONFIG);
+      }
       return DEFAULT_WEB_CONFIG;
     }
   } catch (error) {
@@ -365,9 +374,12 @@ export async function fetchActiveThemeFromFirestore(): Promise<ThemeConfig> {
     if (docSnap.exists()) {
       return docSnap.data() as ThemeConfig;
     } else {
-      // Seed default active theme
+      // Seed default active theme if we have admin credentials
       const defaultTheme = PRESET_THEMES[0];
-      await saveActiveThemeToFirestore(defaultTheme);
+      const email = auth.currentUser?.email;
+      if (email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com") {
+        await saveActiveThemeToFirestore(defaultTheme);
+      }
       return defaultTheme;
     }
   } catch (error) {
@@ -393,7 +405,11 @@ export async function fetchThemeCustomColorsFromFirestore(): Promise<{ primary: 
     if (docSnap.exists()) {
       return docSnap.data() as { primary: string; secondary: string; accent: string };
     } else {
-      await saveThemeCustomColorsToFirestore(defaultColors);
+      const defaultColors = { primary: '#1e293b', secondary: '#d97706', accent: '#cb9e5c' };
+      const email = auth.currentUser?.email;
+      if (email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com") {
+        await saveThemeCustomColorsToFirestore(defaultColors);
+      }
       return defaultColors;
     }
   } catch (error) {
@@ -424,9 +440,12 @@ export async function fetchReviewsFromFirestore(): Promise<Review[]> {
     });
 
     if (reviewsList.length === 0) {
-      // Seed default reviews
-      for (const rev of DEFAULT_REVIEWS) {
-        await saveReviewToFirestore(rev);
+      // Seed default reviews if we have admin credentials
+      const email = auth.currentUser?.email;
+      if (email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com") {
+        for (const rev of DEFAULT_REVIEWS) {
+          await saveReviewToFirestore(rev);
+        }
       }
       return DEFAULT_REVIEWS;
     }

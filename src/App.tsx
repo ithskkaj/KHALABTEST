@@ -29,7 +29,8 @@ import {
   fetchActiveThemeFromFirestore,
   saveActiveThemeToFirestore,
   fetchReviewsFromFirestore,
-  saveReviewToFirestore
+  saveReviewToFirestore,
+  auth
 } from './lib/firebase';
 
 import { 
@@ -244,6 +245,12 @@ export default function App() {
     setProducts(nextProducts);
     saveStoredProducts(nextProducts);
 
+    const email = auth.currentUser?.email;
+    const isAdmin = email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com";
+    if (!isAdmin) {
+      return;
+    }
+
     try {
       // Find deleted products to remove them from Firestore
       const deleted = previousProducts.filter(p => !nextProducts.some(n => n.id === p.id));
@@ -265,12 +272,23 @@ export default function App() {
   };
 
   const handleSaveReviews = async (nextReviews: Review[]) => {
+    const previousReviews = [...reviews];
     setReviews(nextReviews);
     saveStoredReviews(nextReviews);
 
     try {
-      for (const r of nextReviews) {
-        await saveReviewToFirestore(r);
+      const email = auth.currentUser?.email;
+      const isAdmin = email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com";
+      if (isAdmin) {
+        for (const r of nextReviews) {
+          await saveReviewToFirestore(r);
+        }
+      } else {
+        // Standard users can only create new reviews (the security rules allow CREATE but deny UPDATE/DELETE)
+        const onlyNew = nextReviews.filter(n => !previousReviews.some(p => p.id === n.id));
+        for (const r of onlyNew) {
+          await saveReviewToFirestore(r);
+        }
       }
     } catch (err: any) {
       console.error("Failed to sync reviews to Firestore:", err);
@@ -290,6 +308,12 @@ export default function App() {
     setWebConfig(nextCfg);
     saveStoredWebConfig(nextCfg);
 
+    const email = auth.currentUser?.email;
+    const isAdmin = email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com";
+    if (!isAdmin) {
+      return;
+    }
+
     try {
       await saveWebConfigToFirestore(nextCfg);
     } catch (err: any) {
@@ -305,6 +329,12 @@ export default function App() {
     const previousPromos = [...promoCodes];
     setPromoCodes(nextPromos);
     saveStoredPromoCodes(nextPromos);
+
+    const email = auth.currentUser?.email;
+    const isAdmin = email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com";
+    if (!isAdmin) {
+      return;
+    }
 
     try {
       const deleted = previousPromos.filter(p => !nextPromos.some(n => n.code === p.code));
@@ -326,6 +356,12 @@ export default function App() {
   const handleSaveTheme = async (nextTheme: ThemeConfig) => {
     setActiveTheme(nextTheme);
     saveStoredTheme(nextTheme);
+
+    const email = auth.currentUser?.email;
+    const isAdmin = email === "admin@khalabshop.com" || email === "itsbrbellal@gmail.com";
+    if (!isAdmin) {
+      return;
+    }
 
     try {
       await saveActiveThemeToFirestore(nextTheme);
